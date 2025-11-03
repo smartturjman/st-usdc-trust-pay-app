@@ -1,11 +1,5 @@
-// No need for NextResponse—use the Web Response type for Next.js 16
-type RouteContext = { params: { tx: string } };
-
-export async function GET(
-  _req: Request,
-  context: RouteContext
-): Promise<Response> {
-  const { tx } = context.params;
+export async function GET(_req: Request, context: any): Promise<Response> {
+  const { tx } = context.params as { tx: string };
 
   const html = `<!doctype html>
 <html>
