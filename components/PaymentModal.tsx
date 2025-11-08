@@ -257,8 +257,23 @@ export default function PaymentModal() {
 
       const explorerUrl =
         payload.explorerUrl ?? getExplorerUrl(canonicalTxHash) ?? undefined;
-      const pdfUrl =
-        payload.pdfUrl ?? `/api/receipts/${canonicalTxHash}?format=pdf`;
+      const partnerName = selectedService.partner ?? "Turjman Group";
+      const networkLabel = "Arc Testnet";
+      const receiptQuery = new URLSearchParams({
+        serviceId: selectedService.id,
+        serviceLabel: selectedService.label,
+        partner: partnerName,
+        network: networkLabel,
+        status: "Verified",
+      });
+      const queryString = receiptQuery.toString();
+      const pdfUrlWithMeta = `/api/receipts/${canonicalTxHash}?format=pdf${
+        queryString ? `&${queryString}` : ""
+      }`;
+      const receiptPath = `/receipts/${canonicalTxHash}${
+        queryString ? `?${queryString}` : ""
+      }`;
+      const pdfUrl = payload.pdfUrl ?? pdfUrlWithMeta;
       const amountLogged =
         (typeof payload.amount === "string" && payload.amount.length > 0
           ? payload.amount
@@ -274,12 +289,15 @@ export default function PaymentModal() {
               service: selectedService.label,
               serviceId: selectedService.id,
               serviceLabel: selectedService.label,
-            explorerUrl,
-            pdfUrl,
-            partnerUSDC: splitInfo?.partnerUSDC,
-            platformUSDC: splitInfo?.platformUSDC,
-            splitMode: splitInfo?.splitMode ?? "offchain-stub",
-          }),
+              partner: partnerName,
+              network: networkLabel,
+              status: "Verified",
+              explorerUrl,
+              pdfUrl,
+              partnerUSDC: splitInfo?.partnerUSDC,
+              platformUSDC: splitInfo?.platformUSDC,
+              splitMode: splitInfo?.splitMode ?? "offchain-stub",
+            }),
         });
         if (res.ok) {
           setLogged(true);
@@ -295,7 +313,7 @@ export default function PaymentModal() {
 
       setOpen(false);
       setSelectOpen(false);
-      router.push(`/receipts/${canonicalTxHash}`);
+      router.push(receiptPath);
     } catch (error) {
       logError("[PaymentModal] verify request error", error);
       const message =

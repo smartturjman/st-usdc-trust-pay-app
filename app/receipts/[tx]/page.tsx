@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 
 type PageProps = {
   params: Promise<{ tx: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const SHOULD_FORCE_DEPLOY_BASE =
@@ -31,7 +32,21 @@ async function baseUrl() {
   return envBase() || (await absoluteBaseFromHeaders());
 }
 
-export default async function ReceiptPage({ params }: PageProps) {
+async function resolveSearchParams(
+  input: PageProps["searchParams"],
+): Promise<URLSearchParams> {
+  const resolved = input ? await input : {};
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolved ?? {})) {
+    const normalized = Array.isArray(value) ? value[0] : value;
+    if (typeof normalized === "string") {
+      query.set(key, normalized);
+    }
+  }
+  return query;
+}
+
+export default async function ReceiptPage({ params, searchParams }: PageProps) {
   const { tx } = await params; // params is a Promise
   const canonical = normalizeTxHash(tx);
   if (!canonical) {
@@ -43,16 +58,23 @@ export default async function ReceiptPage({ params }: PageProps) {
   }
 
   const base = await baseUrl();
+  const queryParams = await resolveSearchParams(searchParams);
+  const querySuffix = (() => {
+    const str = queryParams.toString();
+    return str.length > 0 ? `?${str}` : "";
+  })();
 
   const fetchReceipt = (hash: string) =>
-    fetch(`${base}/api/receipts/${hash}`, { cache: "no-store" });
+    fetch(`${base}/api/receipts/${hash}${querySuffix}`, { cache: "no-store" });
 
   // Try once; if 404, trigger verify then retry
   let res = await fetchReceipt(canonical);
   if (res.status === 404) {
-    await fetch(`${base}/api/verify?tx=${canonical}`, { cache: "no-store" }).catch(
-      () => {},
-    );
+    const verifyParams = new URLSearchParams(queryParams);
+    verifyParams.set("tx", canonical);
+    await fetch(`${base}/api/verify?${verifyParams.toString()}`, {
+      cache: "no-store",
+    }).catch(() => {});
     res = await fetchReceipt(canonical);
   }
 

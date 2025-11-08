@@ -11,8 +11,15 @@ import {
   buildArcScanTxUrl,
   buildQrUrl,
 } from "@/app/lib/explorer";
-import { findLatestReceiptByTx } from "@/app/lib/receipts";
+import {
+  findLatestReceiptByTx,
+  type Receipt,
+} from "@/app/lib/receipts";
 import { findService } from "@/app/config/services";
+import {
+  resolveReceiptFromChain,
+  type ReceiptOverrides,
+} from "@/app/lib/chainReceipt";
 
 // ✅ Force Node.js runtime (PDF generation needs it) and disable caching
 export const runtime = "nodejs";
@@ -36,12 +43,30 @@ export async function GET(
       return NextResponse.json({ error: "invalid-tx" }, { status: 400 });
     }
 
-    const wantPdf =
-      (new URL(req.url).searchParams.get("format") || "").toLowerCase() === "pdf";
+    const url = new URL(req.url);
+    const searchParams = url.searchParams;
 
-    const receipt = await findLatestReceiptByTx(canonical);
+    const wantPdf =
+      (searchParams.get("format") || "").toLowerCase() === "pdf";
+
+    let receipt = await findLatestReceiptByTx(canonical);
     if (!receipt) {
-      return NextResponse.json({ error: "not-found" }, { status: 404 });
+      const overrides: ReceiptOverrides = {
+        serviceId: searchParams.get("serviceId") ?? undefined,
+        serviceLabel: searchParams.get("serviceLabel") ?? undefined,
+        partner: searchParams.get("partner") ?? undefined,
+        network: searchParams.get("network") ?? undefined,
+        status: searchParams.get("status") as Receipt["status"] | undefined,
+      };
+      const fallback = await resolveReceiptFromChain(canonical, overrides);
+      if (!fallback.ok) {
+        const statusCode = fallback.status === "pending" ? 202 : 404;
+        return NextResponse.json(
+          { error: fallback.message, status: fallback.status },
+          { status: statusCode },
+        );
+      }
+      receipt = fallback.receipt;
     }
 
     const service = receipt.serviceId ? findService(receipt.serviceId) : undefined;
@@ -57,7 +82,10 @@ export async function GET(
         ? receipt.amountUSDC
         : "1.00";
     const network = receipt.network ?? "Arc Testnet";
-    const pdfUrl = `/api/receipts/${canonical}?format=pdf`;
+    const pdfUrl =
+      receipt.pdfUrl && receipt.pdfUrl.length > 0
+        ? receipt.pdfUrl
+        : `/api/receipts/${canonical}?format=pdf`;
     const serviceLabel =
       receipt.serviceLabel ??
       (receipt as { serviceName?: string }).serviceName ??
