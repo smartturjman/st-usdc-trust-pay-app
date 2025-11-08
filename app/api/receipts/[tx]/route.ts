@@ -216,7 +216,11 @@ export async function GET(
       }
 
       const bytes = await pdf.save();
-      return new NextResponse(bytes, {
+      const body = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer;
+      return new NextResponse(body, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename=smart-turjman-receipt-${canonical}.pdf`,

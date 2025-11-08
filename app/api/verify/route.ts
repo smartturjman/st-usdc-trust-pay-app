@@ -157,14 +157,20 @@ export async function GET(req: NextRequest) {
 
     const serviceLabel =
       req.nextUrl.searchParams.get("serviceLabel") ?? "Legal Translation - MOFA";
-    const serviceId = req.nextUrl.searchParams.get("serviceId");
+    const serviceIdParam = req.nextUrl.searchParams.get("serviceId");
+    const serviceId = serviceIdParam ?? undefined;
     const statusLabel = req.nextUrl.searchParams.get("status") ?? "Verified";
     const networkLabel = req.nextUrl.searchParams.get("network") ?? "Arc Testnet";
 
+    const receiptHashes = receipt as Partial<{
+      transactionHash: string;
+      hash: string;
+      txHash: string;
+    }>;
     const txHashFromReceipt =
-      receipt?.transactionHash ??
-      receipt?.hash ??
-      receipt?.txHash ??
+      receiptHashes.transactionHash ??
+      receiptHashes.hash ??
+      receiptHashes.txHash ??
       txHash;
     const responseTxHash = txHashFromReceipt ?? txHash;
     const normalizedTxForReceipt =
