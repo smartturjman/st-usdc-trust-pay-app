@@ -168,7 +168,7 @@ export async function resolveReceiptFromChain(
     overrides.serviceLabel ??
     service?.serviceLabel ??
     service?.label ??
-    "Smart Turjman Service";
+    "Legal Translation - MOFA";
   const partner =
     overrides.partner ??
     service?.partner ??
